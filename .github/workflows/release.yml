@@ -1,0 +1,77 @@
+name: Release LaudUSG
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag ou branch do repo privado (brenogbi/laudos-usg) a buildar, ex: v0.2.1"
+        required: true
+        default: main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      # Serial: evita corrida entre jobs ao criar o mesmo release.
+      max-parallel: 1
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target aarch64-apple-darwin
+            rust-target: aarch64-apple-darwin
+          - platform: windows-latest
+            args: ''
+            rust-target: ''
+
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout do código privado
+        uses: actions/checkout@v4
+        with:
+          repository: brenogbi/laudos-usg
+          ref: ${{ inputs.ref }}
+          token: ${{ secrets.SOURCE_REPO_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ inputs.ref }}
+          releaseName: LaudUSG ${{ inputs.ref }}
+          releaseBody: |
+            ## LaudUSG ${{ inputs.ref }}
+
+            Baixe o instalador para seu sistema:
+            - **Windows**: arquivo .msi ou -setup.exe
+            - **Mac Apple Silicon (M1/M2/M3)**: arquivo aarch64.dmg
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+          args: ${{ matrix.args }}
