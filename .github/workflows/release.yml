@@ -20,8 +20,8 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            args: --target aarch64-apple-darwin
-            rust-target: aarch64-apple-darwin
+            args: --target universal-apple-darwin
+            rust-target: aarch64-apple-darwin,x86_64-apple-darwin
           - platform: windows-latest
             args: ''
             rust-target: ''
@@ -70,7 +70,7 @@ jobs:
 
             Baixe o instalador para seu sistema:
             - **Windows**: arquivo .msi ou -setup.exe
-            - **Mac Apple Silicon (M1/M2/M3)**: arquivo aarch64.dmg
+            - **Mac**: arquivo universal .dmg (Apple Silicon e Intel)
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
