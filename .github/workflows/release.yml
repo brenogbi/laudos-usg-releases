@@ -75,3 +75,23 @@ jobs:
           prerelease: false
           includeUpdaterJson: true
           args: ${{ matrix.args }}
+
+      - name: Injetar ajuda de liberação no DMG (macOS)
+        if: matrix.platform == 'macos-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          DMG=$(ls src-tauri/target/*/release/bundle/dmg/*.dmg 2>/dev/null | head -1 || true)
+          [ -z "$DMG" ] && DMG=$(ls src-tauri/target/release/bundle/dmg/*.dmg | head -1)
+          echo "DMG: $DMG"
+          hdiutil convert "$DMG" -format UDRW -o rw.dmg
+          MNT=$(mktemp -d)
+          hdiutil attach rw.dmg -mountpoint "$MNT" -nobrowse
+          cp "src-tauri/dmg/Liberar LaudUSG.command" "$MNT/"
+          chmod +x "$MNT/Liberar LaudUSG.command"
+          cp "src-tauri/dmg/LEIA - Liberar acesso.txt" "$MNT/"
+          hdiutil detach "$MNT"
+          rm -f "$DMG"; hdiutil convert rw.dmg -format UDZO -o "$DMG"; rm -f rw.dmg
+          gh release upload "$REF" "$DMG" --clobber --repo "${{ github.repository }}"
