@@ -48,6 +48,15 @@ jobs:
         with:
           targets: ${{ matrix.rust-target }}
 
+      # SQLCipher (E3) usa OpenSSL embutido (vendored), que no MSVC exige NASM
+      # para compilar o assembly. Perl (Strawberry) já vem no runner Windows.
+      - name: Install NASM (Windows — OpenSSL do SQLCipher)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          choco install nasm -y --no-progress
+          "C:\Program Files\NASM" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
