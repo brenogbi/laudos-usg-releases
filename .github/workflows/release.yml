@@ -106,3 +106,22 @@ jobs:
           hdiutil detach "$MNT"
           rm -f "$DMG"; hdiutil convert rw.dmg -format UDZO -o "$DMG"; rm -f rw.dmg
           gh release upload "$REF" "$DMG" --clobber --repo "${{ github.repository }}"
+
+      # Executável PORTABLE (Windows): o binário principal roda sem instalação
+      # (dados continuam em %APPDATA%; requer WebView2, presente no Win10/11).
+      - name: Publicar executável portable (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REF: ${{ inputs.ref }}
+        run: |
+          $exe = Get-ChildItem "src-tauri/target/release/*.exe" |
+            Where-Object { $_.Name -notlike "*setup*" } |
+            Select-Object -First 1
+          if (-not $exe) { throw "binário principal não encontrado em target/release" }
+          $base = $exe.BaseName -replace ' ', '.'
+          $dest = "${base}_${env:REF}_x64-portable.exe"
+          Copy-Item $exe.FullName $dest
+          Write-Host "Portable: $dest"
+          gh release upload "$env:REF" "$dest" --clobber --repo "${{ github.repository }}"
