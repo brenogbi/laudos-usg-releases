@@ -131,24 +131,28 @@ jobs:
           gh release upload "$env:REF" "$dest" --clobber --repo "${{ github.repository }}"
 
           # 2) ZIP portátil de verdade
+          # Sem here-string do PowerShell: `"@` precisa começar na coluna 0, o que
+          # quebra a indentação do bloco YAML. Array + -join resolve.
           $pasta = "LaudUSG-Portatil"
           New-Item -ItemType Directory -Force -Path $pasta | Out-Null
           Copy-Item $exe.FullName (Join-Path $pasta $exe.Name)
-          @"
-Este arquivo liga o MODO PORTATIL do LaudUSG.
-
-Enquanto ele existir nesta pasta, o programa grava tudo (laudos, modelos e a
-chave de criptografia) na subpasta Dados, aqui do lado - e nada no sistema.
-Para levar em pendrive ou usar em computador de terceiro, leve a pasta inteira.
-Para remover sem deixar rastro, apague a pasta inteira.
-
-ATENCAO: a subpasta Dados contem os seus laudos. Apagar significa perder.
-Faca backup por Configuracoes > Exportar antes de apagar qualquer coisa.
-
-Se este arquivo for removido, o programa volta a gravar na pasta padrao do
-sistema (%APPDATA%\com.laudusg.app) e os dados da pasta Dados deixam de ser
-usados - continuam aqui, intactos.
-"@ | Set-Content -Path (Join-Path $pasta "LaudUSG-portatil.txt") -Encoding UTF8
+          $leia = @(
+            "Este arquivo liga o MODO PORTATIL do LaudUSG.",
+            "",
+            "Enquanto ele existir nesta pasta, o programa grava tudo (laudos, modelos",
+            "e a chave de criptografia) na subpasta Dados, aqui do lado - e nada no",
+            "sistema. Para levar em pendrive ou usar em computador de terceiro, leve a",
+            "pasta inteira. Para remover sem deixar rastro, apague a pasta inteira.",
+            "",
+            "ATENCAO: a subpasta Dados contem os seus laudos. Apagar significa perder.",
+            "Faca backup em Configuracoes > Exportar antes de apagar qualquer coisa.",
+            "",
+            "Se este arquivo for removido, o programa volta a gravar na pasta padrao",
+            "do sistema e os dados da pasta Dados deixam de ser usados - continuam",
+            "aqui, intactos. O proprio programa avisa quando isso acontece, em",
+            "Configuracoes > Onde seus dados estao."
+          ) -join "`r`n"
+          Set-Content -Path (Join-Path $pasta "LaudUSG-portatil.txt") -Value $leia -Encoding UTF8
 
           $zip = "${base}_${env:REF}_x64-portable.zip"
           Compress-Archive -Path $pasta -DestinationPath $zip -Force
