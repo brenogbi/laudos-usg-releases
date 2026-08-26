@@ -107,9 +107,12 @@ jobs:
           rm -f "$DMG"; hdiutil convert rw.dmg -format UDZO -o "$DMG"; rm -f rw.dmg
           gh release upload "$REF" "$DMG" --clobber --repo "${{ github.repository }}"
 
-      # Executável PORTABLE (Windows): o binário principal roda sem instalação
-      # (dados continuam em %APPDATA%; requer WebView2, presente no Win10/11).
-      - name: Publicar executável portable (Windows)
+      # PORTABLE (Windows): ZIP com o executável + o marcador `LaudUSG-portatil.txt`.
+      # Com o marcador presente, o app grava tudo em `Dados/` ao lado do .exe em vez
+      # de %APPDATA% — descompactar e apagar a pasta não deixa rastro no sistema.
+      # O .exe solto continua sendo publicado para quem já usa esse formato: sem o
+      # marcador ele se comporta como a versão instalada.
+      - name: Publicar portable (Windows)
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         env:
@@ -121,7 +124,33 @@ jobs:
             Select-Object -First 1
           if (-not $exe) { throw "binário principal não encontrado em target/release" }
           $base = $exe.BaseName -replace ' ', '.'
+
+          # 1) .exe solto (compatibilidade com quem já baixa assim)
           $dest = "${base}_${env:REF}_x64-portable.exe"
           Copy-Item $exe.FullName $dest
-          Write-Host "Portable: $dest"
           gh release upload "$env:REF" "$dest" --clobber --repo "${{ github.repository }}"
+
+          # 2) ZIP portátil de verdade
+          $pasta = "LaudUSG-Portatil"
+          New-Item -ItemType Directory -Force -Path $pasta | Out-Null
+          Copy-Item $exe.FullName (Join-Path $pasta $exe.Name)
+          @"
+Este arquivo liga o MODO PORTATIL do LaudUSG.
+
+Enquanto ele existir nesta pasta, o programa grava tudo (laudos, modelos e a
+chave de criptografia) na subpasta Dados, aqui do lado - e nada no sistema.
+Para levar em pendrive ou usar em computador de terceiro, leve a pasta inteira.
+Para remover sem deixar rastro, apague a pasta inteira.
+
+ATENCAO: a subpasta Dados contem os seus laudos. Apagar significa perder.
+Faca backup por Configuracoes > Exportar antes de apagar qualquer coisa.
+
+Se este arquivo for removido, o programa volta a gravar na pasta padrao do
+sistema (%APPDATA%\com.laudusg.app) e os dados da pasta Dados deixam de ser
+usados - continuam aqui, intactos.
+"@ | Set-Content -Path (Join-Path $pasta "LaudUSG-portatil.txt") -Encoding UTF8
+
+          $zip = "${base}_${env:REF}_x64-portable.zip"
+          Compress-Archive -Path $pasta -DestinationPath $zip -Force
+          Write-Host "Portable ZIP: $zip"
+          gh release upload "$env:REF" "$zip" --clobber --repo "${{ github.repository }}"
